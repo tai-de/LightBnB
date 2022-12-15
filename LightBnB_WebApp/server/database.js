@@ -90,7 +90,7 @@ const addUser = function(user) {
           console.log('working');
           return result.rows[0];
         });
-      
+
     });
 
 };
@@ -107,7 +107,7 @@ const getAllReservations = function(guest_id, limit = 10) {
 
 
   const query = {
-    text: `SELECT reservations.id, properties.title, properties.cost_per_night, reservations.start_date, AVG(property_reviews.rating) as average_rating
+    text: `SELECT reservations.*, properties.*, AVG(property_reviews.rating) as average_rating
     FROM reservations
     JOIN properties ON properties.id = reservations.property_id
     JOIN property_reviews ON property_reviews.property_id = properties.id
@@ -139,10 +139,74 @@ exports.getAllReservations = getAllReservations;
  */
 const getAllProperties = function(options, limit = 10) {
 
+  /*
+  options = object
+  {
+    city,
+    owner_id,
+    minimum_price_per_night,
+    maximum_price_per_night,
+    minimum_rating
+  }
+
+ WHERE city LIKE '%ancouv%'
+ GROUP BY properties.id
+ HAVING AVG(property_reviews.rating) >= 4
+ ORDER BY cost_per_night
+ FETCH FIRST $1 ROWS ONLY;
+ */
+
   const query = {
-    text: `SELECT * FROM properties FETCH FIRST $1 ROWS ONLY;`,
-    values: [limit],
+    text: `SELECT properties.*, AVG(property_reviews.rating) as average_rating
+    FROM properties
+    JOIN property_reviews ON property_reviews.property_id = properties.id
+    `,
+    values: [],
   };
+
+  if (options.city) {
+    query.values.push(`%${options.city}%`);
+    query.text += `WHERE city LIKE $${query.values.length} `;
+  }
+
+  if (options.owner_id) {
+    query.values.push(options.owner_id);
+    if (query.text.includes('WHERE')) {
+      query.text += ` AND `;
+    } else { query.text += `WHERE `}
+    query.text += `properties.owner_id = $${query.values.length} `;
+  }
+
+  if (options.minimum_price_per_night || options.maximum_price_per_night) {
+    query.values.push(options.minimum_price_per_night || 0);
+    query.values.push(options.maximum_price_per_night || 99999999);
+    if (query.text.includes('WHERE')) {
+      query.text += ` AND `;
+    } else { query.text += `WHERE `}
+    query.text += `properties.cost_per_night BETWEEN $${query.values.length-1} AND $${query.values.length} `;
+  }
+
+  if (options.minimum_rating) {
+    query.values.push(options.minimum_rating);
+    query.text += `
+    GROUP BY properties.id
+    HAVING AVG(property_reviews.rating) >= $${query.values.length}
+    `;
+  }
+  
+  query.values.push(limit);
+  if (query.text.includes('HAVING')) {
+    query.text += `
+    ORDER BY properties.cost_per_night
+    FETCH FIRST $${query.values.length} ROWS ONLY;
+    `;
+  } else {
+    query.text += `
+    GROUP BY properties.id
+    ORDER BY properties.cost_per_night
+    FETCH FIRST $${query.values.length} ROWS ONLY;
+    `;
+  }
 
   return pool.query(query)
     .then((result) => {
