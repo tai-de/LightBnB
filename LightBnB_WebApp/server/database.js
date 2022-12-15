@@ -80,13 +80,18 @@ exports.getAllReservations = getAllReservations;
  */
 const getAllProperties = function(options, limit = 10) {
 
-  return pool.query(`SELECT * FROM properties LIMIT $1;`, [limit])
+  const query = {
+    text: `SELECT * FROM properties FETCH FIRST $1 ROWS ONLY;`,
+    values: [limit],
+  };
+
+  return pool.query(query)
     .then((result) => {
       return result.rows;
     })
     .catch((err) => {
       console.log(err.message);
-    })
+    });
 
 };
 exports.getAllProperties = getAllProperties;
