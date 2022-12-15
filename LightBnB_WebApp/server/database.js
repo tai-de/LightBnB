@@ -80,14 +80,11 @@ const addUser = function(user) {
     .query(existingCheck)
     .then((result) => {
       if (result.rows[0].count > 0) {
-        console.log('user exists');
-        // return Promise.reject({});
         return {};
       }
       return pool
         .query(query)
         .then((result) => {
-          console.log('working');
           return result.rows[0];
         });
 
@@ -139,23 +136,6 @@ exports.getAllReservations = getAllReservations;
  */
 const getAllProperties = function(options, limit = 10) {
 
-  /*
-  options = object
-  {
-    city,
-    owner_id,
-    minimum_price_per_night,
-    maximum_price_per_night,
-    minimum_rating
-  }
-
- WHERE city LIKE '%ancouv%'
- GROUP BY properties.id
- HAVING AVG(property_reviews.rating) >= 4
- ORDER BY cost_per_night
- FETCH FIRST $1 ROWS ONLY;
- */
-
   const query = {
     text: `SELECT properties.*, AVG(property_reviews.rating) as average_rating
     FROM properties
@@ -200,8 +180,6 @@ const getAllProperties = function(options, limit = 10) {
     ORDER BY properties.cost_per_night
     FETCH FIRST $${query.values.length} ROWS ONLY;
     `;
-
-  console.log(query.text);
 
   return pool.query(query)
     .then((result) => {
