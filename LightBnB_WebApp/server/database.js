@@ -29,8 +29,8 @@ const getUserWithEmail = function(email) {
       return result.rows[0];
     })
     .catch((err) => {
-      console.log(err.message);
-    }); 
+      return Promise.reject(err.message);
+    });
 
 };
 exports.getUserWithEmail = getUserWithEmail;
@@ -53,7 +53,7 @@ const getUserWithId = function(id) {
     })
     .catch((err) => {
       console.log(err.message);
-    }); 
+    });
 
 };
 exports.getUserWithId = getUserWithId;
@@ -66,24 +66,33 @@ exports.getUserWithId = getUserWithId;
  */
 const addUser = function(user) {
 
+  const existingCheck = {
+    text: `SELECT COUNT(*) FROM users WHERE email = $1;`,
+    values: [user.email],
+  };
+
   const query = {
     text: `INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *;`,
     values: [user.name, user.email, user.password],
   };
 
-  return pool.query(query)
+  return pool
+    .query(existingCheck)
     .then((result) => {
-      return result.rows[0];
-    })
-    .catch((err) => {
-      console.log(err.message);
-    }); 
+      if (result.rows[0].count > 0) {
+        console.log('user exists');
+        // return Promise.reject({});
+        return {};
+      }
+      return pool
+        .query(query)
+        .then((result) => {
+          console.log('working');
+          return result.rows[0];
+        });
+      
+    });
 
-
-  const userId = Object.keys(users).length + 1;
-  user.id = userId;
-  users[userId] = user;
-  return Promise.resolve(user);
 };
 exports.addUser = addUser;
 
@@ -95,7 +104,28 @@ exports.addUser = addUser;
  * @return {Promise<[{}]>} A promise to the reservations.
  */
 const getAllReservations = function(guest_id, limit = 10) {
-  return getAllProperties(null, 2);
+
+
+  const query = {
+    text: `SELECT reservations.id, properties.title, properties.cost_per_night, reservations.start_date, AVG(property_reviews.rating) as average_rating
+    FROM reservations
+    JOIN properties ON properties.id = reservations.property_id
+    JOIN property_reviews ON property_reviews.property_id = properties.id
+    WHERE reservations.guest_id = $1
+    GROUP BY properties.id, reservations.id
+    ORDER BY reservations.start_date
+    FETCH FIRST $2 ROWS ONLY;`,
+    values: [guest_id, limit],
+  };
+
+  return pool.query(query)
+    .then((result) => {
+      return result.rows;
+    })
+    .catch((err) => {
+      console.log(err.message);
+    });
+
 };
 exports.getAllReservations = getAllReservations;
 
