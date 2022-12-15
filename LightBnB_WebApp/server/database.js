@@ -173,40 +173,35 @@ const getAllProperties = function(options, limit = 10) {
     query.values.push(options.owner_id);
     if (query.text.includes('WHERE')) {
       query.text += ` AND `;
-    } else { query.text += `WHERE `}
+    } else { query.text += `WHERE `; }
     query.text += `properties.owner_id = $${query.values.length} `;
   }
 
   if (options.minimum_price_per_night || options.maximum_price_per_night) {
     query.values.push(options.minimum_price_per_night || 0);
-    query.values.push(options.maximum_price_per_night || 99999999);
+    query.values.push(options.maximum_price_per_night || 2147483647);
     if (query.text.includes('WHERE')) {
       query.text += ` AND `;
-    } else { query.text += `WHERE `}
-    query.text += `properties.cost_per_night BETWEEN $${query.values.length-1} AND $${query.values.length} `;
+    } else { query.text += ` WHERE `; }
+    query.text += `properties.cost_per_night BETWEEN $${query.values.length - 1} AND $${query.values.length} `;
   }
+
+  query.text += `GROUP BY properties.id `;
 
   if (options.minimum_rating) {
     query.values.push(options.minimum_rating);
     query.text += `
-    GROUP BY properties.id
     HAVING AVG(property_reviews.rating) >= $${query.values.length}
     `;
   }
-  
+
   query.values.push(limit);
-  if (query.text.includes('HAVING')) {
-    query.text += `
+  query.text += `
     ORDER BY properties.cost_per_night
     FETCH FIRST $${query.values.length} ROWS ONLY;
     `;
-  } else {
-    query.text += `
-    GROUP BY properties.id
-    ORDER BY properties.cost_per_night
-    FETCH FIRST $${query.values.length} ROWS ONLY;
-    `;
-  }
+
+  console.log(query.text);
 
   return pool.query(query)
     .then((result) => {
