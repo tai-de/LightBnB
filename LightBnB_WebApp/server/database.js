@@ -10,9 +10,6 @@ const pool = new Pool({
   database: 'lightbnb'
 });
 
-//TODO: - REMOVE THIS TEST CODE
-// pool.query(`SELECT title FROM properties LIMIT 10;`).then(response => { console.log(response); });
-
 /// Users
 
 /**
